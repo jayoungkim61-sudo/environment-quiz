@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>환경 퀴즈 게임 - 플레이어</title>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    
+    <!-- Firebase 설정 파일 (firebase-config.js만 수정하세요!) -->
+    <script src="./firebase-config.js"></script>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans KR', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #root { width: 100%; max-width: 1200px; padding: 20px; }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .title {
+            text-align: center;
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+        .login-form { max-width: 400px; margin: 0 auto; }
+        .input-group { margin-bottom: 20px; }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .quiz-info { font-size: 18px; color: #333; }
+        .timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        .question-card {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .question-number {
+            color: #667eea;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        .question-text {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+        .answers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .answer-btn {
+            padding: 20px;
+            font-size: 18px;
+            border: 3px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        .answer-btn:hover:not(:disabled) { transform: scale(1.05); }
+        .answer-btn:disabled { cursor: not-allowed; }
+        .answer-0 { background: #e74c3c; color: white; }
+        .answer-1 { background: #3498db; color: white; }
+        .answer-2 { background: #f39c12; color: white; }
+        .answer-3 { background: #2ecc71; color: white; }
+        .answer-btn.selected { border-color: #333; }
+        .answer-btn.correct {
+            background: #27ae60 !important;
+            border-color: #1e8449;
+        }
+        .answer-btn.incorrect {
+            background: #95a5a6 !important;
+            border-color: #7f8c8d;
+        }
+        .result-container { text-align: center; }
+        .result-title {
+            font-size: 2em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        .user-score {
+            font-size: 3em;
+            color: #2ecc71;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .feedback {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+        .feedback.correct {
+            background: #d4edda;
+            color: #155724;
+        }
+        .feedback.incorrect {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .rank-display {
+            font-size: 1.5em;
+            color: #e74c3c;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Firebase 초기화 (firebase-config.js에서 설정 불러옴)
+        let database;
+        try {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            database = firebase.database();
+        } catch (error) {
+            console.error("Firebase 초기화 오류:", error);
+        }
+
+        const quizData = [
+            { question: "지구 온난화의 주된 원인은 무엇인가?", answers: ["산소 증가", "이산화탄소 등 온실가스 증가", "오존층 파괴", "황사 발생"], correct: 1 },
+            { question: "재활용 마크에서 숫자 1번은 어떤 재질을 의미하는가?", answers: ["폴리프로필렌(PP)", "폴리스티렌(PS)", "폴리에틸렌 테레프탈레이트(PET)", "폴리염화비닐(PVC)"], correct: 2 },
+            { question: "다음 중 신재생 에너지가 아닌 것은?", answers: ["태양광 에너지", "풍력 에너지", "석탄 에너지", "조력 에너지"], correct: 2 },
+            { question: "오존층이 파괴되면 어떤 문제가 발생하는가?", answers: ["지구 온난화", "산성비", "자외선 증가", "미세먼지 증가"], correct: 2 },
+            { question: "미세먼지의 기준 입자 크기 PM2.5는 지름이 얼마인가?", answers: ["2.5mm", "2.5μm(마이크로미터)", "2.5cm", "2.5nm"], correct: 1 },
+            { question: "생물 다양성이 감소하는 주된 원인은?", answers: ["서식지 파괴", "날씨가 좋아짐", "동물 개체수 증가", "식물 광합성 증가"], correct: 0 },
+            { question: "플라스틱이 자연 분해되는데 걸리는 시간은 약 얼마인가?", answers: ["1년", "10년", "100년", "500년 이상"], correct: 3 },
+            { question: "교토 의정서의 주요 목적은 무엇인가?", answers: ["해양 오염 방지", "온실가스 감축", "산림 보호", "동물 보호"], correct: 1 },
+            { question: "다음 중 온실가스가 아닌 것은?", answers: ["이산화탄소(CO2)", "메탄(CH4)", "아산화질소(N2O)", "산소(O2)"], correct: 3 },
+            { question: "일회용품 사용을 줄이는 것과 가장 관련 있는 환경 운동은?", answers: ["제로 웨이스트", "그린피스", "레드리스트", "블루오션"], correct: 0 },
+            { question: "산성비의 주요 원인 물질은?", answers: ["산소와 수소", "이산화황과 질소산화물", "이산화탄소와 메탄", "오존과 프레온"], correct: 1 },
+            { question: "다음 중 생분해 플라스틱의 원료로 사용되는 것은?", answers: ["석유", "옥수수 전분", "철광석", "석탄"], correct: 1 },
+            { question: "지구의 평균 기온이 산업화 이전 대비 몇 도 이상 상승하지 않도록 노력해야 하는가? (파리 기후협약)", answers: ["0.5도", "1.5도", "3도", "5도"], correct: 1 },
+            { question: "다음 중 탄소 발자국을 줄이는 방법이 아닌 것은?", answers: ["대중교통 이용", "에어컨 사용 증가", "LED 조명 사용", "로컬 푸드 소비"], correct: 1 },
+            { question: "음식물 쓰레기를 퇴비로 만드는 과정을 무엇이라고 하는가?", answers: ["소각", "매립", "퇴비화(컴포스팅)", "재활용"], correct: 2 },
+            { question: "습지의 환경적 역할이 아닌 것은?", answers: ["수질 정화", "홍수 조절", "생물 서식지", "사막화 촉진"], correct: 3 },
+            { question: "전기 자동차의 주요 장점은?", answers: ["온실가스 배출 감소", "소음 증가", "연료비 증가", "유지비 증가"], correct: 0 },
+            { question: "다음 중 멸종 위기 동물이 아닌 것은?", answers: ["호랑이", "판다", "참새", "북극곰"], correct: 2 },
+            { question: "태양광 발전의 장점은?", answers: ["화석 연료 사용", "온실가스 배출", "무한한 재생 가능 에너지", "높은 환경 오염"], correct: 2 },
+            { question: "물 부족 문제를 해결하기 위한 개인 실천 방법은?", answers: ["샤워 시간 늘리기", "양치할 때 물 계속 틀어놓기", "절수 기기 사용하기", "세차 자주 하기"], correct: 2 }
+        ];
+
+        function QuizGame() {
+            const [stage, setStage] = useState('login');
+            const [studentId, setStudentId] = useState('');
+            const [studentName, setStudentName] = useState('');
+            const [currentQuestion, setCurrentQuestion] = useState(0);
+            const [score, setScore] = useState(0);
+            const [correctAnswers, setCorrectAnswers] = useState(0);
+            const [selectedAnswer, setSelectedAnswer] = useState(null);
+            const [showFeedback, setShowFeedback] = useState(false);
+            const [timer, setTimer] = useState(20);
+            const [startTime, setStartTime] = useState(null);
+            const [playerId, setPlayerId] = useState(null);
+            const [currentRank, setCurrentRank] = useState(null);
+            const [error, setError] = useState(null);
+
+            useEffect(() => {
+                if (stage === 'quiz' && timer > 0 && !showFeedback) {
+                    const interval = setInterval(() => {
+                        setTimer(prev => prev - 1);
+                    }, 1000);
+                    return () => clearInterval(interval);
+                } else if (timer === 0 && !showFeedback) {
+                    handleAnswer(null);
+                }
+            }, [timer, stage, showFeedback]);
+
+            useEffect(() => {
+                if (playerId && database) {
+                    const playersRef = database.ref('players');
+                    playersRef.on('value', (snapshot) => {
+                        const players = snapshot.val();
+                        if (players) {
+                            const playerArray = Object.entries(players).map(([id, data]) => ({ id, ...data }));
+                            playerArray.sort((a, b) => {
+                                if (b.score !== a.score) return b.score - a.score;
+                                return a.timestamp - b.timestamp;
+                            });
+                            const rank = playerArray.findIndex(p => p.id === playerId) + 1;
+                            setCurrentRank(rank);
+                        }
+                    });
+                    return () => playersRef.off();
+                }
+            }, [playerId]);
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                if (studentId && studentName) {
+                    try {
+                        const newPlayerId = database.ref().child('players').push().key;
+                        await database.ref('players/' + newPlayerId).set({
+                            studentId, studentName, score: 0, correctAnswers: 0,
+                            currentQuestion: 0, status: 'playing', timestamp: Date.now()
+                        });
+                        setPlayerId(newPlayerId);
+                        setStage('quiz');
+                        setStartTime(Date.now());
+                    } catch (error) {
+                        console.error("로그인 오류:", error);
+                        setError("Firebase 연결 오류. firebase-config.js 설정을 확인해주세요.");
+                    }
+                }
+            };
+
+            const updatePlayerData = async (updates) => {
+                if (playerId && database) {
+                    try {
+                        await database.ref('players/' + playerId).update(updates);
+                    } catch (error) {
+                        console.error("업데이트 오류:", error);
+                    }
+                }
+            };
+
+            const handleAnswer = async (answerIndex) => {
+                if (showFeedback) return;
+                setSelectedAnswer(answerIndex);
+                setShowFeedback(true);
+                const isCorrect = answerIndex === quizData[currentQuestion].correct;
+                const timeBonus = Math.max(0, timer) * 10;
+                let newScore = score;
+                let newCorrectAnswers = correctAnswers;
+                if (isCorrect) {
+                    newScore = score + 1000 + timeBonus;
+                    newCorrectAnswers = correctAnswers + 1;
+                    setScore(newScore);
+                    setCorrectAnswers(newCorrectAnswers);
+                }
+                await updatePlayerData({ score: newScore, correctAnswers: newCorrectAnswers, currentQuestion: currentQuestion + 1 });
+                setTimeout(() => {
+                    if (currentQuestion < quizData.length - 1) {
+                        setCurrentQuestion(prev => prev + 1);
+                        setSelectedAnswer(null);
+                        setShowFeedback(false);
+                        setTimer(20);
+                    } else {
+                        finishQuiz(newScore, newCorrectAnswers);
+                    }
+                }, 2000);
+            };
+
+            const finishQuiz = async (finalScore, finalCorrectAnswers) => {
+                const totalTime = Date.now() - startTime;
+                await updatePlayerData({ score: finalScore, correctAnswers: finalCorrectAnswers, status: 'finished', totalTime });
+                setStage('result');
+            };
+
+            if (error) {
+                return (
+                    <div className="container">
+                        <h1 className="title">🌍 환경 퀴즈 게임 🌱</h1>
+                        <div className="error-message">
+                            <h3>⚠️ 연결 오류</h3>
+                            <p>{error}</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (stage === 'login') {
+                return (
+                    <div className="container">
+                        <h1 className="title">🌍 환경 퀴즈 게임 🌱</h1>
+                        <form className="login-form" onSubmit={handleLogin}>
+                            <div className="input-group">
+                                <label>학번</label>
+                                <input type="text" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="학번을 입력하세요" required />
+                            </div>
+                            <div className="input-group">
+                                <label>이름</label>
+                                <input type="text" value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="이름을 입력하세요" required />
+                            </div>
+                            <button type="submit" className="btn">게임 시작</button>
+                        </form>
+                    </div>
+                );
+            }
+
+            if (stage === 'quiz') {
+                const question = quizData[currentQuestion];
+                return (
+                    <div className="container">
+                        <div className="quiz-header">
+                            <div className="quiz-info">
+                                <strong>{studentName}</strong> ({studentId}) | 점수: {score}점
+                                {currentRank && <span> | 현재 순위: <strong style={{color: '#e74c3c'}}>{currentRank}위</strong></span>}
+                            </div>
+                            <div className="timer">⏱️ {timer}초</div>
+                        </div>
+                        <div className="question-card">
+                            <div className="question-number">문제 {currentQuestion + 1} / {quizData.length}</div>
+                            <div className="question-text">{question.question}</div>
+                            <div className="answers-grid">
+                                {question.answers.map((answer, index) => (
+                                    <button key={index} className={`answer-btn answer-${index} ${selectedAnswer === index ? 'selected' : ''} ${showFeedback && index === question.correct ? 'correct' : ''} ${showFeedback && selectedAnswer === index && index !== question.correct ? 'incorrect' : ''}`} onClick={() => handleAnswer(index)} disabled={showFeedback}>
+                                        {answer}
+                                    </button>
+                                ))}
+                            </div>
+                            {showFeedback && (
+                                <div className={`feedback ${selectedAnswer === question.correct ? 'correct' : 'incorrect'}`}>
+                                    {selectedAnswer === question.correct ? `✅ 정답입니다! +${1000 + Math.max(0, timer) * 10}점` : `❌ 틀렸습니다. 정답은 "${question.answers[question.correct]}" 입니다.`}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            if (stage === 'result') {
+                return (
+                    <div className="container">
+                        <div className="result-container">
+                            <h1 className="result-title">🎉 퀴즈 완료! 🎉</h1>
+                            <div className="user-score">{score}점</div>
+                            <p style={{fontSize: '1.3em', color: '#333'}}>정답: <strong>{correctAnswers}</strong> / {quizData.length}</p>
+                            {currentRank && <div className="rank-display">최종 순위: <strong>{currentRank}위</strong></div>}
+                            <p style={{marginTop: '20px', color: '#666'}}>호스트 화면에서 전체 순위를 확인할 수 있습니다!</p>
+                        </div>
+                    </div>
+                );
+            }
+        }
+
+        ReactDOM.render(<QuizGame />, document.getElementById('root'));
+    </script>
+</body>
+</html>
